@@ -1,0 +1,30 @@
+name: Atualizar Consumo E-Redes Diariamente
+
+on:
+  schedule:
+    - cron: '0 8 * * *'     # Corre todos os dias às 8:00 (hora de Lisboa)
+  workflow_dispatch:        # Permite correr manualmente para testar
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install eredesscraper pandas
+
+      - name: Run E-Redes scraper
+        run: python test_login.py
+        env:
+          EREDES_NIF: ${{ secrets.EREDES_NIF }}
+          EREDES_PASSWORD: ${{ secrets.EREDES_PASSWORD }}
+          EREDES_CPE: ${{ secrets.EREDES_CPE }}
