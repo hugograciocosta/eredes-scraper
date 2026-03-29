@@ -20,4 +20,8 @@ jobs:
           playwright install chromium
           
       - name: Correr o Scraper
+        env:
+          EREDES_EMAIL: ${{ secrets.EREDES_EMAIL }}
+          EREDES_PASSWORD: ${{ secrets.EREDES_PASSWORD }}
+          EREDES_CPE: ${{ secrets.EREDES_CPE }}
         run: python scraper.py
