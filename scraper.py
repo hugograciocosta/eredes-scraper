@@ -1,4 +1,5 @@
 import os
+import time
 from playwright.sync_api import sync_playwright
 
 def run():
@@ -10,21 +11,27 @@ def run():
         print("A navegar para a E-Redes...")
         page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
         
-        # --- NOVO: Lidar com Cookies ---
+        # Lidar com Cookies
         try:
-            # Procura botões que contenham a palavra "Aceitar" ou "Concordar"
-            # O 'timeout=5000' diz ao robô: "Procura durante 5 segundos, se não vires nada, segue caminho"
-            botao_cookies = page.get_by_role("button", name="Aceitar")
-            if botao_cookies.is_visible():
-                botao_cookies.click()
-                print("Cookies aceites com sucesso!")
+            # Tenta clicar no botão de aceitar (procurando por texto)
+            page.get_by_role("button", name="Aceitar").click(timeout=5000)
+            print("Cookies aceites!")
+            # Dá 2 segundos para o site "limpar" o banner do ecrã
+            time.sleep(2)
         except Exception:
-            print("Não vi nenhum aviso de cookies, a avançar...")
-        # -------------------------------
+            print("Sem botão de cookies visível.")
 
-        # Agora tentamos ver se o campo de email aparece
-        page.wait_for_selector('input[type="email"]', timeout=10000)
-        print(f"Sucesso! Cheguei ao formulário. Título: {page.title()}")
+        # Agora procura o campo de email de forma mais flexível
+        print("A procurar campo de login...")
+        # Espera até 15 segundos e procura por qualquer campo que pareça um email
+        page.wait_for_selector('input', timeout=15000)
+        
+        # Vamos imprimir quantos inputs existem na página para nos ajudar a depurar
+        inputs = page.query_selector_all('input')
+        print(f"Encontrei {len(inputs)} campos de texto na página.")
+        
+        if len(inputs) > 0:
+            print("Sucesso! O formulário está visível.")
         
         browser.close()
 
