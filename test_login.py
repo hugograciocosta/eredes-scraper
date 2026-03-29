@@ -12,14 +12,12 @@ try:
     )
     
     print("✅ Login bem sucedido!")
-    print("A tentar obter consumos recentes...")
+    print("A tentar obter consumos...")
     
-    # Tenta obter consumos do último mês
-    consumos = scraper.get_monthly_consumption()
-    consumo_total = consumos['energy'].sum() if 'energy' in consumos.columns else "Não foi possível calcular"
-    
-    print(f"✅ Consumos obtidos com sucesso!")
-    print(f"Consumo total encontrado: {consumo_total} kWh")
+    # Tenta obter consumos (método mais simples)
+    consumos = scraper.get_consumptions()
+    print("✅ Consumos obtidos!")
+    print(f"Total de registos: {len(consumos)}")
     
 except Exception as e:
-    print(f"❌ Erro: {str(e)}")
+    print(f"❌ Erro durante a execução: {str(e)}")
