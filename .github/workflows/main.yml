@@ -19,5 +19,5 @@ jobs:
           pip install playwright
           playwright install chromium
           
-      - name: Testar Ferramentas
-        run: echo "O navegador virtual foi instalado com sucesso!"
+      - name: Correr o Scraper
+        run: python scraper.py
