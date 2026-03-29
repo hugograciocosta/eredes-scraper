@@ -14,5 +14,10 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Testar Ligação
-        run: echo "O robô está pronto para o CPE ${{ secrets.EREDES_CPE }}"
+      - name: Instalar Navegador Virtual
+        run: |
+          pip install playwright
+          playwright install chromium
+          
+      - name: Testar Ferramentas
+        run: echo "O navegador virtual foi instalado com sucesso!"
