@@ -1,0 +1,18 @@
+name: E-Redes Scraper
+on:
+  workflow_dispatch: 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Testar Ligação
+        run: echo "O robô está pronto para o CPE ${{ secrets.EREDES_CPE }}"
