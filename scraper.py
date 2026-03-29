@@ -3,36 +3,46 @@ import time
 from playwright.sync_api import sync_playwright
 
 def run():
+    # Puxamos as tuas credenciais guardadas no GitHub
+    user_email = os.environ.get("EREDES_EMAIL")
+    user_password = os.environ.get("EREDES_PASSWORD")
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(viewport={'width': 1280, 'height': 720})
         page = context.new_page()
         
-        print("A navegar para a E-Redes...")
+        print("A abrir página de login...")
         page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
         
-        # Lidar com Cookies
+        # Aceitar cookies se aparecerem
         try:
-            # Tenta clicar no botão de aceitar (procurando por texto)
             page.get_by_role("button", name="Aceitar").click(timeout=5000)
-            print("Cookies aceites!")
-            # Dá 2 segundos para o site "limpar" o banner do ecrã
-            time.sleep(2)
-        except Exception:
-            print("Sem botão de cookies visível.")
+            time.sleep(1)
+        except:
+            pass
 
-        # Agora procura o campo de email de forma mais flexível
-        print("A procurar campo de login...")
-        # Espera até 15 segundos e procura por qualquer campo que pareça um email
-        page.wait_for_selector('input', timeout=15000)
+        print("A introduzir credenciais...")
+        # Preenche o email
+        page.locator('input[type="email"]').fill(user_email)
+        # Preenche a password
+        page.locator('input[type="password"]').fill(user_password)
         
-        # Vamos imprimir quantos inputs existem na página para nos ajudar a depurar
-        inputs = page.query_selector_all('input')
-        print(f"Encontrei {len(inputs)} campos de texto na página.")
+        # Clica no botão de entrar (geralmente é o botão primário ou do tipo submit)
+        print("A clicar no botão de entrar...")
+        page.click('button[type="submit"]')
         
-        if len(inputs) > 0:
-            print("Sucesso! O formulário está visível.")
+        # Espera para ver se mudamos de página (sucesso)
+        time.sleep(10) 
         
+        print(f"Página após login: {page.url}")
+        
+        if "dashboard" in page.url or "home" in page.url:
+            print("LOGIN EFETUADO COM SUCESSO! Estamos dentro.")
+        else:
+            print("Ainda não chegámos ao dashboard. Pode haver um segundo passo ou erro de login.")
+            page.screenshot(path="resultado_login.png")
+
         browser.close()
 
 if __name__ == "__main__":
