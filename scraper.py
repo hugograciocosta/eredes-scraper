@@ -3,58 +3,60 @@ import time
 from playwright.sync_api import sync_playwright
 
 def run():
-    # Puxar as credenciais
+    # Puxar credenciais das Secrets
     user_email = os.environ.get("EREDES_EMAIL")
     user_password = os.environ.get("EREDES_PASSWORD")
 
     with sync_playwright() as p:
-        # Lançar o browser
+        # Lançar browser (Headless para o GitHub)
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(viewport={'width': 1280, 'height': 800})
         page = context.new_page()
         
-        print("1. A abrir a página inicial...")
-        page.goto("https://balcaodigital.e-redes.pt/home", wait_until="networkidle")
-        time.sleep(3) # Pausa para carregar tudo
-
-        # 2. Cookies (Essencial para libertar o ecrã)
+        print("1. A abrir a página de login direto...")
+        page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
+        
+        # Passo dos Cookies (para não tapar o botão Empresarial)
         try:
             page.get_by_role("button", name="Aceitar").click(timeout=5000)
-            print("Cookies aceites.")
             time.sleep(1)
         except:
-            print("Banner de cookies não apareceu.")
+            pass
 
-        # 3. Clicar no botão 'Login' do topo (visto na tua foto)
-        print("2. A clicar no link de Login no topo...")
-        # Usamos o 'header' para garantir que clicamos no sítio certo
-        page.locator("header").get_by_text("Login").click()
+        # 2. O Passo Crítico: Clicar em Empresarial
+        print("2. A clicar no botão 'Empresarial'...")
+        try:
+            # Procuramos o botão pelo texto exato
+            page.get_by_text("Empresarial").click(timeout=15000)
+            print("Botão Empresarial clicado com sucesso.")
+        except Exception as e:
+            print(f"Erro ao encontrar botão Empresarial: {e}")
+            page.screenshot(path="erro_botao.png")
+            browser.close()
+            return
+
+        # 3. Esperar que o formulário de login carregue após o clique
+        print("3. A aguardar o formulário de e-mail...")
+        time.sleep(3) # Pausa técnica para a transição
         
-        # 4. Esperar que a página de formulário carregue
-        print("3. A aguardar que o formulário apareça...")
-        # Esperamos 10 segundos pelo campo de email
-        page.wait_for_selector('input[type="email"]', timeout=15000)
-        
-        # 5. Preencher com calma
-        print("4. A introduzir as credenciais...")
-        page.locator('input[type="email"]').fill(user_email)
-        time.sleep(1)
-        page.locator('input[type="password"]').fill(user_password)
-        time.sleep(1)
-        
-        # 6. Clicar no botão 'Entrar'
-        print("5. A submeter o formulário...")
-        page.get_by_role("button", name="Entrar").click()
-        
-        # 7. Verificação final
-        time.sleep(8)
-        print(f"Página após tentativa: {page.url}")
-        
-        if "login" not in page.url.lower():
-            print("VITÓRIA: Saímos da zona de login!")
-        else:
-            print("ERRO: O login falhou ou o site pediu um segundo passo.")
-            page.screenshot(path="falha_final.png")
+        try:
+            # Esperar pelo campo de email aparecer
+            page.wait_for_selector('input[type="email"]', timeout=20000)
+            
+            print("4. A preencher credenciais...")
+            page.fill('input[type="email"]', user_email)
+            page.fill('input[type="password"]', user_password)
+            
+            print("5. A submeter...")
+            page.get_by_role("button", name="Entrar").click()
+            
+            # Verificação final
+            time.sleep(10)
+            print(f"URL após login: {page.url}")
+            
+        except Exception as e:
+            print(f"Erro no formulário: {e}")
+            page.screenshot(path="erro_formulario.png")
 
         browser.close()
 
