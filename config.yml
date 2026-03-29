@@ -1,9 +1,7 @@
 eredes:
-  # eredes credentials
-  nif: 123456789
-  pwd: myAwesomePassword
-  # CPE to monitor. e.g. PT00############04TW (where # is a digit). CPE can be found in your bill details
-  cpe: PT00############04TW
+  nif: ${{ secrets.EREDES_NIF }}
+  pwd: ${{ secrets.EREDES_PASSWORD }}
+  cpe: ${{ secrets.EREDES_CPE }}
 
 influxdb:
   # url to InfluxDB.  e.g. http://localhost or https://influxdb.my-domain.com
