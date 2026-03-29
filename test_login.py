@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from eredesscraper.workflows import switchboard
 from datetime import datetime
@@ -5,16 +6,24 @@ from datetime import datetime
 print("=== Teste de acesso ao Balcão Digital E-Redes ===")
 print(f"Hora: {datetime.now()}")
 
-try:
-    print("A carregar config.yml e a tentar login...")
+nif = os.getenv("EREDES_NIF")
+password = os.getenv("EREDES_PASSWORD")
+cpe = os.getenv("EREDES_CPE")
 
-    # Executa o workflow "current" (mês atual) sem guardar em base de dados
+print(f"NIF encontrado: {len(nif) if nif else 0} caracteres")
+print(f"CPE encontrado: {len(cpe) if cpe else 0} caracteres")
+
+try:
+    print("A tentar login diretamente...")
+
     switchboard(
-        config_path=Path("./config.yml"),
+        config_path=None,           # não usa config.yml
+        nif=int(nif),
+        pwd=password,
+        cpe=cpe,
         name="current",
-        db=[],          # não usa InfluxDB
-        delta=False,
-        keep=True       # mantém os dados na memória para vermos
+        db=[],                      # sem base de dados
+        delta=False
     )
 
     print("✅ Login e obtenção de consumos bem sucedidos!")
