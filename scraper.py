@@ -3,6 +3,12 @@ import time
 import random
 from playwright.sync_api import sync_playwright
 
+def human_type(element, text):
+    """Escreve texto com atrasos aleatórios entre cada letra."""
+    for char in text:
+        element.type(char, delay=random.randint(100, 250))
+        time.sleep(random.uniform(0.01, 0.05))
+
 def run():
     user_email = os.environ.get("EREDES_EMAIL")
     user_password = os.environ.get("EREDES_PASSWORD")
@@ -13,44 +19,48 @@ def run():
         page = context.new_page()
 
         try:
-            print("1. A abrir portal...")
+            print("1. A carregar portal...")
             page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
             
-            # Clicar no botão 'Empresarial'
+            # Clicar em Empresarial e aguardar a transição
             page.get_by_text("Empresarial").click()
-            page.wait_for_selector("input[type='password']", timeout=20000)
-            time.sleep(2)
+            time.sleep(4) # Pausa generosa para o Angular renderizar
 
-            # --- PREENCHIMENTO ---
-            print("2. A focar e preencher E-mail...")
-            # Clicamos na label para ativar o campo
-            page.get_by_text("E-mail").first.click(force=True)
-            time.sleep(1) 
+            # --- CAMPO E-MAIL ---
+            print("2. A focar no E-mail...")
+            email_field = page.locator("input").nth(0)
+            email_field.click(force=True)
+            time.sleep(1.5) # Esperar a animação da etiqueta subir
             
-            # Escrevemos o email
-            page.keyboard.type(user_email, delay=50)
-            
-            print("3. A preencher Password...")
+            print("A escrever e-mail calmamente...")
+            human_type(email_field, user_email)
+            time.sleep(1) # Pausa após escrever
+
+            # --- CAMPO PASSWORD ---
+            print("3. A saltar para Password...")
             page.keyboard.press("Tab")
+            time.sleep(1.5) # Esperar o foco estabilizar
+            
+            pw_field = page.locator("input[type='password']")
+            print("A escrever password...")
+            human_type(pw_field, user_password)
+            time.sleep(1)
+
+            # --- SUBMISSÃO ---
+            print("4. A navegar até ao botão 'Entrar'...")
+            # Em vez de Enter, vamos usar o Tab para chegar ao botão amarelo
+            page.keyboard.press("Tab") # Salta o "Esqueceu-se..."
             time.sleep(0.5)
-            page.keyboard.type(user_password, delay=50)
+            page.keyboard.press("Tab") # Foca no botão Entrar
+            time.sleep(1.5)
 
-            # --- CORREÇÃO CRÍTICA DO ERRO ---
-            print("4. A mover foco para o botão 'Entrar' (para evitar recuperação de pw)...")
-            # Fazemos TAB mais duas vezes para saltar o link "Esqueceu-se..." e focar no botão
-            page.keyboard.press("Tab")
-            time.sleep(0.2)
-            page.keyboard.press("Tab")
-            time.sleep(0.5) # Tempo para o foco visual assentar no botão amarelo
-
-            print("5. A submeter (agora sim, no botão certo)...")
+            print("5. A clicar...")
             page.keyboard.press("Enter")
             
-            # Aguardar redirecionamento
-            print("6. A aguardar Dashboard...")
-            time.sleep(15)
+            print("A aguardar dashboard (30s)...")
+            time.sleep(30)
             print(f"URL Final: {page.url}")
-            page.screenshot(path="final_login_attempt.png")
+            page.screenshot(path="final_result.png")
 
         except Exception as e:
             print(f"Erro: {e}")
