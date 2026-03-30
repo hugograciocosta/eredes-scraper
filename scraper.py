@@ -8,49 +8,40 @@ def run():
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        # O vídeo só é gravado se o contexto for fechado corretamente
-        context = browser.new_context(
-            viewport={'width': 1280, 'height': 800},
-            record_video_dir="videos/"
-        )
+        context = browser.new_context(viewport={'width': 1280, 'height': 800}, record_video_dir="videos/")
         page = context.new_page()
 
         try:
-            print("1. A abrir portal...")
             page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
             
-            try:
-                page.get_by_role("button", name="Aceitar todos os cookies").click(timeout=5000)
-            except: pass
-
-            print("2. A entrar na área Empresarial...")
+            # 1. Chegar ao formulário
             page.get_by_text("Empresarial").click()
-            
-            print("3. A aguardar formulário...")
-            page.wait_for_selector("section.login-actions", timeout=20000)
-            time.sleep(3) 
+            page.wait_for_selector("input[type='password']", timeout=20000)
+            time.sleep(2)
 
-            print("4. A preencher com FORÇA (ignora sobreposições)...")
-            inputs = page.locator("section.login-actions input")
+            # 2. Estratégia de Teclado (Ignora camadas de layout)
+            # Clicamos na password (que já sabemos que funciona) para ganhar foco
+            pw_field = page.locator("input[type='password']")
+            pw_field.click(force=True)
             
-            # Email - Usamos force=True para ignorar a label que está à frente
-            inputs.nth(0).click(force=True)
-            inputs.nth(0).fill(user_email)
+            # Fazemos Shift+Tab para saltar para o campo de E-mail (o anterior)
+            page.keyboard.press("Shift+Tab")
+            time.sleep(0.5)
             
-            # Password - Usamos force=True para ignorar a label que está à frente
-            inputs.nth(1).click(force=True)
-            inputs.nth(1).fill(user_password)
+            # Escrevemos o email letra a letra (simulando humano)
+            page.keyboard.type(user_email, delay=100)
+            
+            # Tab para voltar à password e escrever
+            page.keyboard.press("Tab")
+            page.keyboard.type(user_password, delay=100)
 
-            print("5. A submeter...")
+            # 3. Submeter
             page.keyboard.press("Enter")
-            time.sleep(15)
+            time.sleep(10)
 
         except Exception as e:
-            print(f"Erro detetado: {e}")
-        
+            print(f"Erro: {e}")
         finally:
-            # ESTA PARTE É CRUCIAL: Fecha sempre para garantir que o vídeo é guardado
-            print("A fechar contexto e guardar vídeo...")
             context.close()
             browser.close()
 
