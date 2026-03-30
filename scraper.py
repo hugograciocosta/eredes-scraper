@@ -1,69 +1,79 @@
 import os
 import time
-import random
 from playwright.sync_api import sync_playwright
-
-def human_type(element, text):
-    """Escreve texto com atrasos aleatórios entre cada letra."""
-    for char in text:
-        element.type(char, delay=random.randint(100, 250))
-        time.sleep(random.uniform(0.01, 0.05))
 
 def run():
     user_email = os.environ.get("EREDES_EMAIL")
     user_password = os.environ.get("EREDES_PASSWORD")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # Lançamos com slow_mo para garantir que o browser processa os scripts de injeção
+        browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
         context = browser.new_context(viewport={'width': 1280, 'height': 800}, record_video_dir="videos/")
         page = context.new_page()
 
         try:
-            print("1. A carregar portal...")
+            print("1. Acedendo ao portal...")
             page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
             
-            # Clicar em Empresarial e aguardar a transição
+            # Seleção de área
             page.get_by_text("Empresarial").click()
-            time.sleep(4) # Pausa generosa para o Angular renderizar
+            page.wait_for_selector("input[type='password']", timeout=20000)
+            time.sleep(3)
 
-            # --- CAMPO E-MAIL ---
-            print("2. A focar no E-mail...")
-            email_field = page.locator("input").nth(0)
-            email_field.click(force=True)
-            time.sleep(1.5) # Esperar a animação da etiqueta subir
-            
-            print("A escrever e-mail calmamente...")
-            human_type(email_field, user_email)
-            time.sleep(1) # Pausa após escrever
+            print("2. Executando bypass de validação Angular...")
+            # Esta função JavaScript emula um preenchimento humano completo a nível de memória
+            page.evaluate(f"""
+                (email, pw) => {{
+                    function fillAngularField(selector, value) {{
+                        const el = document.querySelector(selector);
+                        if (!el) return;
+                        
+                        // 1. Dar foco e disparar eventos de início
+                        el.focus();
+                        el.dispatchEvent(new Event('focus', {{ bubbles: true }}));
+                        
+                        // 2. Injetar valor e disparar eventos de input (o que o Angular ouve)
+                        el.value = value;
+                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                        
+                        // 3. Retirar foco para validar
+                        el.blur();
+                        el.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+                    }}
 
-            # --- CAMPO PASSWORD ---
-            print("3. A saltar para Password...")
-            page.keyboard.press("Tab")
-            time.sleep(1.5) # Esperar o foco estabilizar
-            
-            pw_field = page.locator("input[type='password']")
-            print("A escrever password...")
-            human_type(pw_field, user_password)
-            time.sleep(1)
+                    // O primeiro input é sempre o email nesta estrutura
+                    const allInputs = document.querySelectorAll('input');
+                    fillAngularField('input[type="password"]', pw); // Password primeiro para testar estabilidade
+                    
+                    // Encontrar o input de email (que às vezes não tem type='email')
+                    const emailInput = Array.from(allInputs).find(i => i.getAttribute('formcontrolname') === 'email' || i.type !== 'password');
+                    if (emailInput) {{
+                        emailInput.focus();
+                        emailInput.value = email;
+                        emailInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        emailInput.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+                    }}
+                }}
+            """, [user_email, user_password])
 
-            # --- SUBMISSÃO ---
-            print("4. A navegar até ao botão 'Entrar'...")
-            # Em vez de Enter, vamos usar o Tab para chegar ao botão amarelo
-            page.keyboard.press("Tab") # Salta o "Esqueceu-se..."
-            time.sleep(0.5)
-            page.keyboard.press("Tab") # Foca no botão Entrar
-            time.sleep(1.5)
+            time.sleep(2)
 
-            print("5. A clicar...")
-            page.keyboard.press("Enter")
-            
-            print("A aguardar dashboard (30s)...")
-            time.sleep(30)
-            print(f"URL Final: {page.url}")
-            page.screenshot(path="final_result.png")
+            print("3. Submetendo via clique forçado no botão de submissão...")
+            # Usamos o seletor da classe primária que o Angular usa para o botão 'Entrar'
+            # Isto evita clicar acidentalmente em 'Registe-se' ou 'Recuperar Password'
+            submit_btn = page.locator("button.ant-btn-primary, button:has-text('Entrar')").first
+            submit_btn.click(force=True)
+
+            print("4. Aguardando processamento final...")
+            time.sleep(20)
+            print(f"URL de Destino: {page.url}")
+            page.screenshot(path="resultado_final.png")
 
         except Exception as e:
-            print(f"Erro: {e}")
+            print(f"Erro Crítico: {e}")
+            page.screenshot(path="debug_erro.png")
         finally:
             context.close()
             browser.close()
