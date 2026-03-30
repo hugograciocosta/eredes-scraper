@@ -17,7 +17,7 @@ jobs:
       - name: Instalar Navegador Virtual
         run: |
           pip install playwright
-          playwright install chromium
+          playwright install firefox
           
       - name: Correr o Scraper
         env:
