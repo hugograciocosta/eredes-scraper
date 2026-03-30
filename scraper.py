@@ -7,60 +7,57 @@ def run():
     user_password = os.environ.get("EREDES_PASSWORD")
 
     with sync_playwright() as p:
+        # Usamos uma identidade de browser muito comum para evitar bloqueios
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={'width': 1280, 'height': 800})
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
         page = context.new_page()
         
-        print("1. A abrir E-Redes...")
+        print("1. A abrir portal e aceitar cookies...")
         page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
         
-        # 2. Matar Cookies
         try:
-            print("2. A aceitar cookies...")
-            page.get_by_role("button", name="Aceitar todos os cookies").click(timeout=10000)
-            time.sleep(2)
+            page.get_by_role("button", name="Aceitar todos os cookies").click(timeout=5000)
+            time.sleep(1)
         except:
-            print("Barra de cookies não apareceu ou já foi aceite.")
+            pass
 
-        # 3. Clicar no Empresarial
-        print("3. A clicar em 'Empresarial'...")
-        try:
-            # Esperamos que o texto esteja visível e clicamos
-            botao = page.get_by_text("Empresarial")
-            botao.wait_for(state="visible", timeout=10000)
-            botao.click()
-            print("Clique efetuado.")
-        except Exception:
-            print("Falha no clique normal, a tentar via JavaScript forçado...")
-            # Esta linha procura qualquer elemento que diga Empresarial e clica
-            page.evaluate("Array.from(document.querySelectorAll('*')).find(el => el.innerText === 'Empresarial').click()")
+        print("2. A forçar entrada no sistema EDP ID...")
+        # Em vez de clicar, vamos navegar diretamente para o "túnel" de login empresarial
+        # Este URL é o que o botão ativa por trás das cenas
+        page.goto("https://balcaodigital.e-redes.pt/login-return?type=business", wait_until="networkidle")
+        
+        # Damos tempo para o redirecionamento múltiplo (E-redes -> EDP ID)
+        time.sleep(10)
+        
+        print(f"URL atual: {page.url}")
 
-        # 4. Login EDP
-        print("4. A aguardar página da EDP...")
         try:
-            page.wait_for_url("**/login.edp.pt/**", timeout=20000)
-            print("Sucesso! A preencher dados...")
+            # Se o salto funcionou, o campo de email TEM de estar aqui
+            print("3. A procurar campos de login...")
+            page.wait_for_selector('input[type="email"]', timeout=30000)
             
-            # Usamos IDs e tipos genéricos que a EDP não muda
-            page.wait_for_selector('input[type="email"]')
+            print("4. A preencher dados...")
             page.fill('input[type="email"]', user_email)
             page.fill('input[type="password"]', user_password)
             
-            # Clicar no botão 'Entrar'
+            # Submeter
             page.get_by_role("button", name="Entrar").click()
             
-            print("5. Login submetido. A aguardar Dashboard...")
+            print("5. Aguardando Dashboard final...")
             time.sleep(15)
+            print(f"URL Final Alcançado: {page.url}")
             
-            print(f"URL Final: {page.url}")
-            if "home" in page.url.lower() or "dashboard" in page.url.lower():
+            if "login" not in page.url.lower():
                 print("ESTAMOS DENTRO!")
             else:
-                page.screenshot(path="pos_login.png")
-                
+                print("O login parou no meio do caminho.")
+                page.screenshot(path="parado_no_login.png")
+
         except Exception as e:
-            print(f"Erro final: {e}")
-            page.screenshot(path="erro_edp.png")
+            print(f"O salto direto falhou ou o site bloqueou: {e}")
+            page.screenshot(path="erro_salto.png")
 
         browser.close()
 
