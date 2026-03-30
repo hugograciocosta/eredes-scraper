@@ -7,61 +7,52 @@ def run():
     user_password = os.environ.get("EREDES_PASSWORD")
 
     with sync_playwright() as p:
-        # Modo non-headless para este teste pode ajudar, mas mantemos True para o GitHub
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={'width': 1280, 'height': 800}, record_video_dir="videos/")
+        # O vídeo só é gravado se o contexto for fechado corretamente
+        context = browser.new_context(
+            viewport={'width': 1280, 'height': 800},
+            record_video_dir="videos/"
+        )
         page = context.new_page()
 
         try:
             print("1. A abrir portal...")
             page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
             
-            # Aceitar cookies
             try:
                 page.get_by_role("button", name="Aceitar todos os cookies").click(timeout=5000)
             except: pass
 
-            print("2. A clicar em 'Empresarial'...")
+            print("2. A entrar na área Empresarial...")
             page.get_by_text("Empresarial").click()
             
-            # Aguardar a estrutura do Angular carregar
-            print("3. A aguardar carregamento do formulário Angular...")
+            print("3. A aguardar formulário...")
             page.wait_for_selector("section.login-actions", timeout=20000)
-            time.sleep(3) # Pausa técnica para o Angular estabilizar os bindings
+            time.sleep(3) 
 
-            print("4. A preencher via seletores de posição...")
-            
-            # No Angular, selecionar pelo tipo de input dentro da seção é o mais seguro
+            print("4. A preencher com FORÇA (ignora sobreposições)...")
             inputs = page.locator("section.login-actions input")
             
-            # Primeiro input (E-mail)
-            inputs.nth(0).click()
-            inputs.nth(0).fill("") # Limpar
-            inputs.nth(0).type(user_email, delay=100)
+            # Email - Usamos force=True para ignorar a label que está à frente
+            inputs.nth(0).click(force=True)
+            inputs.nth(0).fill(user_email)
             
-            # Segundo input (Password)
-            inputs.nth(1).click()
-            inputs.nth(1).fill("")
-            inputs.nth(1).type(user_password, delay=100)
+            # Password - Usamos force=True para ignorar a label que está à frente
+            inputs.nth(1).click(force=True)
+            inputs.nth(1).fill(user_password)
 
             print("5. A submeter...")
-            # Clicar no botão 'Entrar' que está dentro da mesma seção
-            page.locator("section.login-actions button.ant-btn-primary").click()
-            
-            # Backup: se não clicou, Enter
             page.keyboard.press("Enter")
-
-            print("6. A verificar redirecionamento...")
             time.sleep(15)
-            print(f"URL Final: {page.url}")
-            page.screenshot(path="final_angular_test.png")
 
         except Exception as e:
-            print(f"Erro: {e}")
-            page.screenshot(path="erro_angular.png")
-
-        context.close()
-        browser.close()
+            print(f"Erro detetado: {e}")
+        
+        finally:
+            # ESTA PARTE É CRUCIAL: Fecha sempre para garantir que o vídeo é guardado
+            print("A fechar contexto e guardar vídeo...")
+            context.close()
+            browser.close()
 
 if __name__ == "__main__":
     run()
