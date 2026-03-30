@@ -7,56 +7,54 @@ def run():
     user_password = os.environ.get("EREDES_PASSWORD")
 
     with sync_playwright() as p:
-        # Usamos Chromium com identidade real
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        )
+        context = browser.new_context(viewport={'width': 1280, 'height': 800})
         page = context.new_page()
         
-        print("1. A carregar E-Redes...")
+        print("1. A abrir E-Redes...")
         page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
         
-        # Aceitar cookies via teclado (mais seguro que clique)
-        time.sleep(3)
-        page.keyboard.press("Escape") # Tenta fechar overlays
-
-        print("2. A selecionar 'Empresarial' via TAB (Acessibilidade)...")
-        # Este método simula um humano a saltar entre botões com o teclado
-        # É quase impossível de bloquear
-        found = False
-        for _ in range(15): # Tentamos 15 vezes o TAB até focar no Empresarial
-            page.keyboard.press("Tab")
-            focused_text = page.evaluate("document.activeElement.innerText")
-            if focused_text and "Empresarial" in focused_text:
-                page.keyboard.press("Enter")
-                print("Botão acionado via Teclado!")
-                found = True
-                break
-        
-        if not found:
-            print("Teclado falhou, a tentar clique forçado por coordenadas...")
-            box = page.get_by_text("Empresarial").bounding_box()
-            if box:
-                page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
-
-        # Esperar a transição
+        # PASSO CRÍTICO: Matar os cookies
+        print("2. A tentar eliminar a barra de cookies...")
         try:
-            print("3. A aguardar EDP ID...")
+            # Procuramos o botão amarelo de aceitar
+            botao_cookies = page.get_by_role("button", name="Aceitar todos os cookies")
+            botao_cookies.wait_for(state="visible", timeout=10000)
+            botao_cookies.click()
+            print("Cookies aceites com sucesso.")
+            time.sleep(2) # Espera que a barra desapareça visualmente
+        except Exception as e:
+            print(f"Não vi a barra de cookies ou erro: {e}")
+
+        print("3. A clicar no botão 'Empresarial'...")
+        try:
+            # Agora que o caminho está livre, clicamos no Empresarial
+            # Usamos um seletor que foca no texto mas dentro da caixa correta
+            page.locator("app-login-option").filter(has_text="Empresarial").click()
+            print("Botão Empresarial clicado.")
+        except Exception as e:
+            print(f"Erro ao clicar no empresarial: {e}")
+            # Se falhar, tentamos o clique por JavaScript (o nosso plano B)
+            page.evaluate("document.querySelectorAll('app-login-option')[1].click()")
+
+        print("4. A aguardar redirecionamento para EDP ID...")
+        try:
             page.wait_for_url("**/login.edp.pt/**", timeout=20000)
+            print(f"Sucesso! Página de login EDP alcançada: {page.url}")
             
-            print("4. A preencher login...")
-            page.wait_for_selector('input[type="email"]', state="visible")
+            # Preencher login
+            page.wait_for_selector('input[type="email"]')
             page.fill('input[type="email"]', user_email)
             page.fill('input[type="password"]', user_password)
-            page.keyboard.press("Enter")
+            page.get_by_role("button", name="Entrar").click()
             
-            time.sleep(10)
+            print("5. A aguardar entrada no Balcão...")
+            time.sleep(15)
             print(f"URL Final: {page.url}")
             
         except Exception as e:
-            print(f"Erro: {e}")
-            page.screenshot(path="debug.png")
+            print(f"Falha após clique: {e}")
+            page.screenshot(path="debug_pos_clique.png")
 
         browser.close()
 
