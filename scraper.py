@@ -1,5 +1,6 @@
 import os
 import time
+import random
 from playwright.sync_api import sync_playwright
 
 def run():
@@ -12,32 +13,45 @@ def run():
         page = context.new_page()
 
         try:
+            print("1. A abrir portal...")
             page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
             
-            # 1. Chegar ao formulário
+            # Clicar no botão 'Empresarial'
             page.get_by_text("Empresarial").click()
+            
+            # ESPERA HUMANA: Aguardar que o formulário "nasça" na página
             page.wait_for_selector("input[type='password']", timeout=20000)
             time.sleep(2)
 
-            # 2. Estratégia de Teclado (Ignora camadas de layout)
-            # Clicamos na password (que já sabemos que funciona) para ganhar foco
-            pw_field = page.locator("input[type='password']")
-            pw_field.click(force=True)
+            # --- ATAQUE AO EMAIL ---
+            print("2. A focar no E-mail (com simulação de clique)...")
+            # Em vez de preencher, vamos clicar no texto 'E-mail' para disparar a animação do Angular
+            page.get_by_text("E-mail").first.click(force=True)
+            time.sleep(1) # Tempo para a label subir
             
-            # Fazemos Shift+Tab para saltar para o campo de E-mail (o anterior)
-            page.keyboard.press("Shift+Tab")
+            # Escrever como um humano (atrasos aleatórios entre letras)
+            for char in user_email:
+                page.keyboard.type(char)
+                time.sleep(random.uniform(0.05, 0.15))
+            
+            print("3. A saltar para Password...")
+            page.keyboard.press("Tab")
             time.sleep(0.5)
             
-            # Escrevemos o email letra a letra (simulando humano)
-            page.keyboard.type(user_email, delay=100)
-            
-            # Tab para voltar à password e escrever
-            page.keyboard.press("Tab")
-            page.keyboard.type(user_password, delay=100)
+            for char in user_password:
+                page.keyboard.type(char)
+                time.sleep(random.uniform(0.05, 0.15))
 
-            # 3. Submeter
+            print("4. Movimento de rato aleatório antes de Entrar...")
+            page.mouse.move(random.randint(100, 500), random.randint(100, 500))
+            time.sleep(1)
+            
+            print("5. A submeter...")
             page.keyboard.press("Enter")
-            time.sleep(10)
+            
+            # Aguardar para ver se o URL muda (sucesso)
+            time.sleep(15)
+            print(f"URL Final: {page.url}")
 
         except Exception as e:
             print(f"Erro: {e}")
