@@ -14,47 +14,53 @@ def run():
         print("1. A abrir E-Redes...")
         page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
         
-        # PASSO CRÍTICO: Matar os cookies
-        print("2. A tentar eliminar a barra de cookies...")
+        # 2. Matar Cookies
         try:
-            # Procuramos o botão amarelo de aceitar
-            botao_cookies = page.get_by_role("button", name="Aceitar todos os cookies")
-            botao_cookies.wait_for(state="visible", timeout=10000)
-            botao_cookies.click()
-            print("Cookies aceites com sucesso.")
-            time.sleep(2) # Espera que a barra desapareça visualmente
-        except Exception as e:
-            print(f"Não vi a barra de cookies ou erro: {e}")
+            print("2. A aceitar cookies...")
+            page.get_by_role("button", name="Aceitar todos os cookies").click(timeout=10000)
+            time.sleep(2)
+        except:
+            print("Barra de cookies não apareceu ou já foi aceite.")
 
-        print("3. A clicar no botão 'Empresarial'...")
+        # 3. Clicar no Empresarial
+        print("3. A clicar em 'Empresarial'...")
         try:
-            # Agora que o caminho está livre, clicamos no Empresarial
-            # Usamos um seletor que foca no texto mas dentro da caixa correta
-            page.locator("app-login-option").filter(has_text="Empresarial").click()
-            print("Botão Empresarial clicado.")
-        except Exception as e:
-            print(f"Erro ao clicar no empresarial: {e}")
-            # Se falhar, tentamos o clique por JavaScript (o nosso plano B)
-            page.evaluate("document.querySelectorAll('app-login-option')[1].click()")
+            # Esperamos que o texto esteja visível e clicamos
+            botao = page.get_by_text("Empresarial")
+            botao.wait_for(state="visible", timeout=10000)
+            botao.click()
+            print("Clique efetuado.")
+        except Exception:
+            print("Falha no clique normal, a tentar via JavaScript forçado...")
+            # Esta linha procura qualquer elemento que diga Empresarial e clica
+            page.evaluate("Array.from(document.querySelectorAll('*')).find(el => el.innerText === 'Empresarial').click()")
 
-        print("4. A aguardar redirecionamento para EDP ID...")
+        # 4. Login EDP
+        print("4. A aguardar página da EDP...")
         try:
             page.wait_for_url("**/login.edp.pt/**", timeout=20000)
-            print(f"Sucesso! Página de login EDP alcançada: {page.url}")
+            print("Sucesso! A preencher dados...")
             
-            # Preencher login
+            # Usamos IDs e tipos genéricos que a EDP não muda
             page.wait_for_selector('input[type="email"]')
             page.fill('input[type="email"]', user_email)
             page.fill('input[type="password"]', user_password)
+            
+            # Clicar no botão 'Entrar'
             page.get_by_role("button", name="Entrar").click()
             
-            print("5. A aguardar entrada no Balcão...")
+            print("5. Login submetido. A aguardar Dashboard...")
             time.sleep(15)
-            print(f"URL Final: {page.url}")
             
+            print(f"URL Final: {page.url}")
+            if "home" in page.url.lower() or "dashboard" in page.url.lower():
+                print("ESTAMOS DENTRO!")
+            else:
+                page.screenshot(path="pos_login.png")
+                
         except Exception as e:
-            print(f"Falha após clique: {e}")
-            page.screenshot(path="debug_pos_clique.png")
+            print(f"Erro final: {e}")
+            page.screenshot(path="erro_edp.png")
 
         browser.close()
 
