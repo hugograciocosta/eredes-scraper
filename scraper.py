@@ -7,62 +7,56 @@ def run():
     user_password = os.environ.get("EREDES_PASSWORD")
 
     with sync_playwright() as p:
-        # Usamos Chromium mas com uma identidade de browser real
+        # Usamos Chromium com identidade real
         browser = p.chromium.launch(headless=True)
-        
-        # Simulamos um utilizador real num ecrã normal
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            viewport={'width': 1920, 'height': 1080}
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         )
         page = context.new_page()
         
-        print("1. A carregar o portal E-Redes (com identidade real)...")
+        print("1. A carregar E-Redes...")
         page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
         
-        # Pausa para o JavaScript do site assentar
-        time.sleep(5)
+        # Aceitar cookies via teclado (mais seguro que clique)
+        time.sleep(3)
+        page.keyboard.press("Escape") # Tenta fechar overlays
 
-        print("2. A tentar forçar o clique no 'Empresarial' via JavaScript...")
-        try:
-            # Este comando procura o elemento que contém "Empresarial" e clica via JS puro
-            # Ignora proteções visuais ou sobreposições
-            page.evaluate("""
-                const elements = document.querySelectorAll('app-login-option');
-                for (let el of elements) {
-                    if (el.innerText.includes('Empresarial')) {
-                        el.click();
-                        break;
-                    }
-                }
-            """)
-            print("Comando de clique enviado.")
-        except Exception as e:
-            print(f"Erro no clique JS: {e}")
+        print("2. A selecionar 'Empresarial' via TAB (Acessibilidade)...")
+        # Este método simula um humano a saltar entre botões com o teclado
+        # É quase impossível de bloquear
+        found = False
+        for _ in range(15): # Tentamos 15 vezes o TAB até focar no Empresarial
+            page.keyboard.press("Tab")
+            focused_text = page.evaluate("document.activeElement.innerText")
+            if focused_text and "Empresarial" in focused_text:
+                page.keyboard.press("Enter")
+                print("Botão acionado via Teclado!")
+                found = True
+                break
+        
+        if not found:
+            print("Teclado falhou, a tentar clique forçado por coordenadas...")
+            box = page.get_by_text("Empresarial").bounding_box()
+            if box:
+                page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
 
-        print("3. A aguardar a transição para a EDP ID...")
-        # Esperamos que o URL mude. Se o clique funcionou, o URL TEM de mudar.
+        # Esperar a transição
         try:
-            page.wait_for_url("**/login.edp.pt/**", timeout=30000)
-            print(f"Sucesso! Entrámos na página da EDP: {page.url}")
+            print("3. A aguardar EDP ID...")
+            page.wait_for_url("**/login.edp.pt/**", timeout=20000)
             
-            # 4. Preencher o Login
-            print("4. A preencher credenciais...")
+            print("4. A preencher login...")
             page.wait_for_selector('input[type="email"]', state="visible")
             page.fill('input[type="email"]', user_email)
             page.fill('input[type="password"]', user_password)
+            page.keyboard.press("Enter")
             
-            # Clicar no Entrar
-            page.get_by_role("button", name="Entrar").click()
+            time.sleep(10)
+            print(f"URL Final: {page.url}")
             
-            print("5. A aguardar o Dashboard final...")
-            time.sleep(15)
-            print(f"Página Final: {page.url}")
-
-        except Exception:
-            print(f"O site não reagiu ao clique. URL atual: {page.url}")
-            # Se falhar, vamos tirar um print para ver o que o robô está a ver
-            page.screenshot(path="visao_do_robo.png")
+        except Exception as e:
+            print(f"Erro: {e}")
+            page.screenshot(path="debug.png")
 
         browser.close()
 
