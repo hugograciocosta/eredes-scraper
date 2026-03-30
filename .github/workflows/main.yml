@@ -1,27 +1,43 @@
 name: E-Redes Scraper
+
 on:
-  workflow_dispatch: 
+  workflow_dispatch: # Permite-te correr o botão manualmente
+  schedule:
+    - cron: '0 8 * * *' # Corre todos os dias às 08:00 (opcional)
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Configurar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Instalar Navegador Virtual
+      - name: Instalar Dependências Python
         run: |
+          python -m pip install --upgrade pip
           pip install playwright
-          playwright install firefox
-          
-      - name: Correr o Scraper
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Instalar Navegadores Playwright
+        run: |
+          playwright install --with-deps
+
+      - name: Executar Scraper
         env:
           EREDES_EMAIL: ${{ secrets.EREDES_EMAIL }}
           EREDES_PASSWORD: ${{ secrets.EREDES_PASSWORD }}
-          EREDES_CPE: ${{ secrets.EREDES_CPE }}
-        run: python scraper.py
+        run: |
+          python scraper.py
+
+      - name: Guardar Screenshots em caso de erro
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots-erro
+          path: ./*.png
