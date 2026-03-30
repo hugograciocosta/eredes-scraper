@@ -18,40 +18,39 @@ def run():
             
             # Clicar no botão 'Empresarial'
             page.get_by_text("Empresarial").click()
-            
-            # ESPERA HUMANA: Aguardar que o formulário "nasça" na página
             page.wait_for_selector("input[type='password']", timeout=20000)
             time.sleep(2)
 
-            # --- ATAQUE AO EMAIL ---
-            print("2. A focar no E-mail (com simulação de clique)...")
-            # Em vez de preencher, vamos clicar no texto 'E-mail' para disparar a animação do Angular
+            # --- PREENCHIMENTO ---
+            print("2. A focar e preencher E-mail...")
+            # Clicamos na label para ativar o campo
             page.get_by_text("E-mail").first.click(force=True)
-            time.sleep(1) # Tempo para a label subir
+            time.sleep(1) 
             
-            # Escrever como um humano (atrasos aleatórios entre letras)
-            for char in user_email:
-                page.keyboard.type(char)
-                time.sleep(random.uniform(0.05, 0.15))
+            # Escrevemos o email
+            page.keyboard.type(user_email, delay=50)
             
-            print("3. A saltar para Password...")
+            print("3. A preencher Password...")
             page.keyboard.press("Tab")
             time.sleep(0.5)
-            
-            for char in user_password:
-                page.keyboard.type(char)
-                time.sleep(random.uniform(0.05, 0.15))
+            page.keyboard.type(user_password, delay=50)
 
-            print("4. Movimento de rato aleatório antes de Entrar...")
-            page.mouse.move(random.randint(100, 500), random.randint(100, 500))
-            time.sleep(1)
-            
-            print("5. A submeter...")
+            # --- CORREÇÃO CRÍTICA DO ERRO ---
+            print("4. A mover foco para o botão 'Entrar' (para evitar recuperação de pw)...")
+            # Fazemos TAB mais duas vezes para saltar o link "Esqueceu-se..." e focar no botão
+            page.keyboard.press("Tab")
+            time.sleep(0.2)
+            page.keyboard.press("Tab")
+            time.sleep(0.5) # Tempo para o foco visual assentar no botão amarelo
+
+            print("5. A submeter (agora sim, no botão certo)...")
             page.keyboard.press("Enter")
             
-            # Aguardar para ver se o URL muda (sucesso)
+            # Aguardar redirecionamento
+            print("6. A aguardar Dashboard...")
             time.sleep(15)
             print(f"URL Final: {page.url}")
+            page.screenshot(path="final_login_attempt.png")
 
         except Exception as e:
             print(f"Erro: {e}")
