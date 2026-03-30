@@ -7,63 +7,62 @@ def run():
     user_password = os.environ.get("EREDES_PASSWORD")
 
     with sync_playwright() as p:
-        # Firefox é a nossa melhor aposta para este redirecionamento
-        browser = p.firefox.launch(headless=True)
-        context = browser.new_context(viewport={'width': 1280, 'height': 800})
+        # Usamos Chromium mas com uma identidade de browser real
+        browser = p.chromium.launch(headless=True)
+        
+        # Simulamos um utilizador real num ecrã normal
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={'width': 1920, 'height': 1080}
+        )
         page = context.new_page()
         
-        print("1. A abrir login da E-Redes...")
+        print("1. A carregar o portal E-Redes (com identidade real)...")
         page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
         
-        # Aceitar cookies para limpar o caminho
-        try:
-            page.get_by_role("button", name="Aceitar").click(timeout=5000)
-        except:
-            pass
+        # Pausa para o JavaScript do site assentar
+        time.sleep(5)
 
-        print("2. A procurar e clicar no botão 'Empresarial'...")
+        print("2. A tentar forçar o clique no 'Empresarial' via JavaScript...")
         try:
-            # Localizamos a caixa específica do login empresarial
-            btn = page.locator("app-login-option").filter(has_text="Empresarial")
-            btn.wait_for(state="visible", timeout=10000)
-            # click(force=True) garante que o clique acontece mesmo que algo esteja à frente
-            btn.click(force=True)
-            print("Clique no botão 'Empresarial' executado.")
+            # Este comando procura o elemento que contém "Empresarial" e clica via JS puro
+            # Ignora proteções visuais ou sobreposições
+            page.evaluate("""
+                const elements = document.querySelectorAll('app-login-option');
+                for (let el of elements) {
+                    if (el.innerText.includes('Empresarial')) {
+                        el.click();
+                        break;
+                    }
+                }
+            """)
+            print("Comando de clique enviado.")
         except Exception as e:
-            print(f"Erro ao clicar: {e}. A tentar alternativa por texto...")
-            page.get_by_text("Empresarial").click(force=True)
+            print(f"Erro no clique JS: {e}")
 
-        print("3. A aguardar redirecionamento para o sistema EDP ID...")
+        print("3. A aguardar a transição para a EDP ID...")
+        # Esperamos que o URL mude. Se o clique funcionou, o URL TEM de mudar.
         try:
-            # Esperamos que o URL mude para o domínio de login da EDP
-            page.wait_for_url("**/login.edp.pt/**", timeout=20000)
-            print(f"Sucesso! Estamos agora em: {page.url}")
+            page.wait_for_url("**/login.edp.pt/**", timeout=30000)
+            print(f"Sucesso! Entrámos na página da EDP: {page.url}")
             
-            # 4. Preencher Credenciais
-            print("4. A preencher email e password...")
-            page.wait_for_selector('input[type="email"]', timeout=15000)
+            # 4. Preencher o Login
+            print("4. A preencher credenciais...")
+            page.wait_for_selector('input[type="email"]', state="visible")
             page.fill('input[type="email"]', user_email)
             page.fill('input[type="password"]', user_password)
             
-            print("5. A submeter formulário...")
-            # Clicar no botão 'Entrar' (submit)
-            page.locator('button[type="submit"]').first.click()
+            # Clicar no Entrar
+            page.get_by_role("button", name="Entrar").click()
             
-            # Espera longa para o site processar o login e entrar no Dashboard
-            print("A aguardar entrada no Balcão Digital...")
+            print("5. A aguardar o Dashboard final...")
             time.sleep(15)
-            
-            print(f"URL Final Alcançado: {page.url}")
-            
-            if "login" not in page.url.lower():
-                print("VITÓRIA: Login concluído!")
-            else:
-                print("AVISO: O URL ainda indica página de login.")
-                page.screenshot(path="falha_final.png")
+            print(f"Página Final: {page.url}")
 
-        except Exception as e:
-            print(f"Ocorreu um erro no redirecionamento/login: {e}")
-            page.screenshot(path="debug_erro.png")
+        except Exception:
+            print(f"O site não reagiu ao clique. URL atual: {page.url}")
+            # Se falhar, vamos tirar um print para ver o que o robô está a ver
+            page.screenshot(path="visao_do_robo.png")
 
         browser.close()
 
