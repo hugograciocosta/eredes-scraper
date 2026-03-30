@@ -3,58 +3,53 @@ import time
 from playwright.sync_api import sync_playwright
 
 def run():
+    # Vai buscar o email e pass que guardaste nos Secrets
     user_email = os.environ.get("EREDES_EMAIL")
     user_password = os.environ.get("EREDES_PASSWORD")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # AGORA USAMOS FIREFOX
+        browser = p.firefox.launch(headless=True)
         context = browser.new_context(viewport={'width': 1280, 'height': 800})
         page = context.new_page()
         
-        print("1. A abrir login...")
-        page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
+        print("1. A saltar direto para o login Empresarial...")
+        # Este link ignora o botão inicial e vai direto ao que interessa
+        page.goto("https://balcaodigital.e-redes.pt/login-return?type=business", wait_until="networkidle")
         
-        try:
-            page.get_by_role("button", name="Aceitar").click(timeout=5000)
-        except:
-            pass
-
-        print("2. A clicar em Empresarial...")
-        page.get_by_text("Empresarial").click()
-        
-        # Damos um tempo para o iframe carregar
+        # Espera 5 segundos para o site da EDP ID carregar
         time.sleep(5)
 
-        print("3. A procurar o quadro de login (iframe)...")
-        # O segredo: Procurar todos os frames e ver qual tem o campo de email
-        login_frame = None
-        for frame in page.frames:
-            if "login" in frame.url or "edp" in frame.url:
-                login_frame = frame
-                break
-        
-        # Se não encontramos pelo URL, tentamos o frame principal (fallback)
-        target = login_frame if login_frame else page
-        
+        print(f"2. Estamos em: {page.url}")
+
         try:
-            print("4. A tentar preencher credenciais...")
-            # Usamos um seletor mais genérico que funciona em quase todos os logins EDP
-            target.wait_for_selector('input[name="email"], input[type="email"]', timeout=20000)
-            target.fill('input[name="email"], input[type="email"]', user_email)
-            target.fill('input[name="password"], input[type="password"]', user_password)
+            print("3. A procurar campos de email...")
+            # Espera até o campo de email aparecer no ecrã
+            page.wait_for_selector('input[type="email"]', timeout=20000)
             
-            print("5. A submeter...")
-            # Clica no botão que estiver disponível no frame
-            target.locator('button[type="submit"]').click()
+            print("4. A preencher dados...")
+            page.fill('input[type="email"]', user_email)
+            page.fill('input[type="password"]', user_password)
             
-            time.sleep(10)
-            print(f"Sucesso! URL final: {page.url}")
+            print("5. A clicar em Entrar...")
+            # Clica no botão de submeter o formulário
+            page.locator('button[type="submit"]').first.click()
             
+            # Espera 15 segundos para ver se o Dashboard aparece
+            print("A aguardar login final...")
+            time.sleep(15)
+            
+            print(f"6. URL final: {page.url}")
+            
+            if "login" not in page.url.lower():
+                print("CONSEGUIMOS! Estamos dentro do balcão.")
+            else:
+                print("Algo falhou no login. A tirar print...")
+                page.screenshot(path="falha_login.png")
+
         except Exception as e:
-            print(f"Erro no preenchimento: {e}")
-            page.screenshot(path="debug_iframe.png")
-            # Vamos listar os frames para eu analisar no próximo passo se falhar
-            print(f"Frames encontrados: {[f.url for f in page.frames]}")
+            print(f"Erro no processo: {e}")
+            page.screenshot(path="erro_total.png")
 
         browser.close()
 
