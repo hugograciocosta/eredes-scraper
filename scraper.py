@@ -13,59 +13,64 @@ def run():
         page = context.new_page()
 
         try:
-            print("--- INÍCIO DO DIAGNÓSTICO ---")
+            print("1. Acedendo ao portal...")
             page.goto("https://balcaodigital.e-redes.pt/login", wait_until="networkidle")
             
-            # 1. Ver que botões existem na página inicial
-            buttons = page.locator("button, .ant-tabs-tab").all_inner_texts()
-            print(f"Botões/Tabs encontrados: {buttons}")
+            # --- RESOLUÇÃO DO PROBLEMA DOS COOKIES ---
+            print("2. A limpar banner de cookies...")
+            try:
+                # Tentamos clicar no botão 'Aceitar todos os cookies' que aparece nos teus prints
+                cookie_btn = page.locator("button#onetrust-accept-btn-handler, button:has-text('Aceitar todos os cookies')").first
+                if cookie_btn.is_visible():
+                    cookie_btn.click()
+                    print("Cookies aceites.")
+                else:
+                    # Se não for o OneTrust, tentamos o botão genérico amarelo do banner cinzento
+                    page.locator(".cookie-banner button, button:has-text('Aceitar')").first.click()
+            except Exception as e:
+                print(f"Nota: Banner de cookies não encontrado ou já fechado. {e}")
 
-            print("2. A selecionar 'Empresarial'...")
+            time.sleep(2)
+
+            print("3. A selecionar 'Empresarial'...")
+            # Clicamos e aguardamos que o banner desapareça realmente da frente dos campos
             page.get_by_text("Empresarial").click()
-            time.sleep(5) 
+            time.sleep(3)
 
-            # 2. Diagnóstico de Inputs: O que é que o Angular realmente injetou?
+            # Diagnóstico de Inputs: O que é que o Angular realmente injetou?
             inputs_info = page.evaluate("""() => {
                 return Array.from(document.querySelectorAll('input')).map(i => ({
-                    type: i.type,
-                    placeholder: i.placeholder,
-                    id: i.id,
-                    name: i.name,
-                    visible: i.getBoundingClientRect().width > 0
+                    type: i.type, placeholder: i.placeholder, visible: i.getBoundingClientRect().width > 0
                 }));
             }""")
-            print(f"Inputs detetados após clique: {inputs_info}")
+            print(f"Inputs visíveis: {inputs_info}")
 
-            # 3. Ação de Escrita com Foco Forçado
-            print("3. A preencher E-mail...")
-            # Procuramos o primeiro input que não seja password e esteja visível
+            print("4. A preencher credenciais (com foco forçado)...")
+            # Foco no email (o primeiro input visível que não é password)
             email_field = page.locator("input:not([type='password']):visible").first
             email_field.click(force=True)
-            time.sleep(1)
-            # Limpar e escrever como humano
-            page.keyboard.press("Control+A")
-            page.keyboard.press("Backspace")
             page.keyboard.type(user_email, delay=random.randint(50, 100))
-
-            print("4. A preencher Password...")
-            pw_field = page.locator("input[type='password']").first
+            
+            time.sleep(1)
+            
+            # Foco na password
+            pw_field = page.locator("input[type='password']:visible").first
             pw_field.click(force=True)
-            time.sleep(0.5)
             page.keyboard.type(user_password, delay=random.randint(50, 100))
 
-            print("5. Submeter...")
-            # Procurar o botão amarelo/primário de entrar
+            print("5. Submetendo...")
+            # O botão 'Entrar' deve estar agora clicável sem o banner por cima
             submit_btn = page.locator("button.ant-btn-primary, button:has-text('Entrar')").first
             submit_btn.click()
 
-            print("6. Aguardando resultado (30s)...")
-            time.sleep(30)
-            print(f"URL Final: {page.url}")
-            page.screenshot(path="final_diag.png")
+            print("6. Aguardando processamento...")
+            time.sleep(20)
+            print(f"URL de Destino: {page.url}")
+            page.screenshot(path="final_result_sem_cookies.png")
 
         except Exception as e:
-            print(f"ERRO CRÍTICO: {e}")
-            page.screenshot(path="erro_diag.png")
+            print(f"Erro: {e}")
+            page.screenshot(path="erro_cookies.png")
         finally:
             context.close()
             browser.close()
